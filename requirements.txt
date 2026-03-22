@@ -1,0 +1,22 @@
+# FLBS - Flibusta Book Search Dependencies
+# Python 3.10+ required
+
+# No external Python dependencies required!
+# The program uses only standard library modules:
+# - os, sys, re, json, glob, zipfile, base64, shutil, subprocess, tempfile
+# - sqlite3, dataclasses, typing
+
+# System dependencies (install via package manager):
+# - p7zip-full (for 7z command)
+# - libxml2-utils (for xmllint command)
+# - libjxl-extra or libjxl-tools (for djxl command)
+
+# Example installation:
+# Debian/Ubuntu:
+#   sudo apt install p7zip-full libxml2-utils libjxl-extra
+#
+# Fedora:
+#   sudo dnf install p7zip libxml2 libjxl-tools
+#
+# Arch Linux:
+#   sudo pacman -S p7zip libxml2 libjxl

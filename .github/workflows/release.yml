@@ -1,0 +1,155 @@
+name: 🚀 Release & Version Management
+
+on:
+  push:
+    tags:
+      - 'v*'  # Запуск при создании тега версии (v1.0.0, v1.1.0, etc.)
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Версия для релиза (например, 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-release:
+    name: 📦 Build & Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout репозитория
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Получаем всю историю для changelog
+      
+      - name: 🐍 Настройка Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: 📦 Установка зависимостей
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+      
+      - name: 🏷️ Получение версии
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+            echo "tag_name=v${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            # Извлекаем версию из тега (убираем 'v' в начале)
+            VERSION=${GITHUB_REF#refs/tags/v}
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 📝 Генерация CHANGELOG
+        id: changelog
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "🎉 Первый релиз!" > changelog.md
+            echo "" >> changelog.md
+            echo "### Все изменения:" >> changelog.md
+            git log --pretty=format:"- %s (%h)" >> changelog.md
+          else
+            echo "### Изменения с версии $PREVIOUS_TAG:" >> changelog.md
+            echo "" >> changelog.md
+            git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" >> changelog.md
+          fi
+          cat changelog.md
+      
+      - name: 📊 Подсчёт статистики
+        id: stats
+        run: |
+          TOTAL_FILES=$(find . -name "*.py" | wc -l)
+          TOTAL_LINES=$(find . -name "*.py" -exec cat {} \; | wc -l)
+          echo "total_files=$TOTAL_FILES" >> $GITHUB_OUTPUT
+          echo "total_lines=$TOTAL_LINES" >> $GITHUB_OUTPUT
+      
+      - name: 📦 Создание ZIP архива
+        run: |
+          ARCHIVE_NAME="flbs-${{ steps.get_version.outputs.version }}.zip"
+          zip -r "$ARCHIVE_NAME" . \
+            -x "*.git*" \
+            -x "*.github*" \
+            -x "__pycache__*" \
+            -x "*.pyc" \
+            -x "*.pyo" \
+            -x ".DS_Store" \
+            -x "*.md" \
+            -x "LICENSE"
+          # Переименовываем для релиза
+          mv "$ARCHIVE_NAME" "flbs-release-${{ steps.get_version.outputs.version }}.zip"
+          echo "archive_name=flbs-release-${{ steps.get_version.outputs.version }}.zip" >> $GITHUB_OUTPUT
+      
+      - name: ✨ Создание релиза на GitHub
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "📚 FLBS v${{ steps.get_version.outputs.version }}"
+          body: |
+            ## 🎉 Релиз FLBS v${{ steps.get_version.outputs.version }}
+            
+            ${{ steps.changelog.outputs.body }}
+            
+            ---
+            
+            ## 📊 Статистика проекта
+            - 📄 Файлов Python: ${{ steps.stats.outputs.total_files }}
+            - 📝 Строк кода: ${{ steps.stats.outputs.total_lines }}
+            
+            ---
+            
+            ## 📥 Установка
+            
+            ### 1. Скачайте архив
+            - [flbs-release-${{ steps.get_version.outputs.version }}.zip](../../releases/download/v${{ steps.get_version.outputs.version }}/flbs-release-${{ steps.get_version.outputs.version }}.zip)
+            
+            ### 2. Распакуйте
+            ```bash
+            unzip flbs-release-${{ steps.get_version.outputs.version }}.zip
+            cd flbs
+            ```
+            
+            ### 3. Установите зависимости
+            ```bash
+            pip install -r requirements.txt
+            ```
+            
+            ### 4. Настройте переменные окружения
+            См. подробную инструкцию в [README.md](../../blob/main/README.md)
+            
+            ---
+            
+            ## 📖 Документация
+            - [🇷🇺 Русская версия](../../blob/main/README.md)
+            - [🇬🇧 English version](../../blob/main/README_en.md)
+            
+            ---
+            
+            ## 🐛 Сообщить о проблеме
+            - [Создать Issue](../../issues/new/choose)
+            
+            ---
+            
+            **Сделано с ❤️ для любителей книг**
+          tag_name: v${{ steps.get_version.outputs.version }}
+          files: |
+            flbs-release-${{ steps.get_version.outputs.version }}.zip
+          draft: false
+          prerelease: false
+          make_latest: true
+      
+      - name: 🎉 Уведомление об успехе
+        run: |
+          echo "✅ Релиз v${{ steps.get_version.outputs.version }} успешно создан!"
+          echo "📦 Архив: flbs-release-${{ steps.get_version.outputs.version }}.zip"
+          echo "🔗 Ссылка: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.get_version.outputs.version }}"

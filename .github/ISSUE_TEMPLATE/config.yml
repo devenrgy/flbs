@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Документация (Documentation)
+    url: https://github.com/yourusername/flbs/blob/main/README.md
+    about: Пожалуйста, сначала ознакомьтесь с документацией
+  - name: 💬 Обсуждения (Discussions)
+    url: https://github.com/yourusername/flbs/discussions
+    about: Для общих вопросов и обсуждений используйте Discussions

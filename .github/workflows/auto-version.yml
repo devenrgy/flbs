@@ -1,0 +1,131 @@
+name: 🔄 Auto Version Bump
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - '**.py'
+      - '**.md'
+      - '**.txt'
+      - '**.yml'
+      - '**.yaml'
+
+permissions:
+  contents: write
+
+jobs:
+  version-check:
+    name: 📋 Check Version Changes
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version_type: ${{ steps.check.outputs.version_type }}
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 🔍 Проверка изменений
+        id: check
+        run: |
+          # Получаем список изменённых файлов
+          FILES=$(git diff --name-only HEAD~1 HEAD)
+          
+          # Проверяем на наличие маркеров для релиза
+          if echo "$FILES" | grep -qE "(VERSION|version|__version__|CHANGELOG|release)"; then
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            
+            # Определяем тип версии по коммитам
+            LAST_COMMIT=$(git log -1 --pretty=%B)
+            if echo "$LAST_COMMIT" | grep -qiE "feat|feature|new"; then
+              echo "version_type=minor" >> $GITHUB_OUTPUT
+            elif echo "$LAST_COMMIT" | grep -qiE "fix|bug|patch"; then
+              echo "version_type=patch" >> $GITHUB_OUTPUT
+            elif echo "$LAST_COMMIT" | grep -qiE "breaking|major"; then
+              echo "version_type=major" >> $GITHUB_OUTPUT
+            else
+              echo "version_type=patch" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "version_type=none" >> $GITHUB_OUTPUT
+          fi
+
+  auto-tag:
+    name: 🏷️ Create Version Tag
+    needs: version-check
+    if: needs.version-check.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: 📊 Получение текущей версии
+        id: current_version
+        run: |
+          # Получаем последний тег
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "last_tag=$LAST_TAG" >> $GITHUB_OUTPUT
+          
+          # Разбираем версию
+          VERSION=${LAST_TAG#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          echo "minor=$MINOR" >> $GITHUB_OUTPUT
+          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+      
+      - name: 🔢 Расчёт новой версии
+        id: new_version
+        run: |
+          MAJOR=${{ steps.current_version.outputs.major }}
+          MINOR=${{ steps.current_version.outputs.minor }}
+          PATCH=${{ steps.current_version.outputs.patch }}
+          
+          TYPE="${{ needs.version-check.outputs.version_type }}"
+          
+          case $TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch|*)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "new_tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
+      
+      - name: 🏷️ Создание нового тега
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          NEW_TAG="${{ steps.new_version.outputs.new_tag }}"
+          
+          # Создаём и пушим тег
+          git tag -a "$NEW_TAG" -m "🚀 Auto-release $NEW_TAG"
+          git push origin "$NEW_TAG"
+          
+          echo "✅ Тег $NEW_TAG создан и отправлен!"
+      
+      - name: 🎉 Уведомление
+        run: |
+          echo "🎉 Автоматическое обновление версии!"
+          echo "📦 Новая версия: ${{ steps.new_version.outputs.new_version }}"
+          echo "🏷️ Тег: ${{ steps.new_version.outputs.new_tag }}"
+          echo "🔗 Релиз будет создан автоматически через workflow release.yml"
