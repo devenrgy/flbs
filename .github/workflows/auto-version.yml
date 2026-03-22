@@ -5,12 +5,9 @@ on:
     branches:
       - main
       - master
-    paths:
-      - '**.py'
+    paths-ignore:
+      - '.github/**'
       - '**.md'
-      - '**.txt'
-      - '**.yml'
-      - '**.yaml'
 
 permissions:
   contents: write
@@ -25,45 +22,44 @@ jobs:
     
     steps:
       - name: 📥 Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 2
       
       - name: 🔍 Проверка изменений
         id: check
         run: |
-          # Получаем список изменённых файлов
-          FILES=$(git diff --name-only HEAD~1 HEAD)
-          
-          # Проверяем на наличие маркеров для релиза
-          if echo "$FILES" | grep -qE "(VERSION|version|__version__|CHANGELOG|release)"; then
-            echo "should_release=true" >> $GITHUB_OUTPUT
-            
-            # Определяем тип версии по коммитам
-            LAST_COMMIT=$(git log -1 --pretty=%B)
-            if echo "$LAST_COMMIT" | grep -qiE "feat|feature|new"; then
-              echo "version_type=minor" >> $GITHUB_OUTPUT
-            elif echo "$LAST_COMMIT" | grep -qiE "fix|bug|patch"; then
-              echo "version_type=patch" >> $GITHUB_OUTPUT
-            elif echo "$LAST_COMMIT" | grep -qiE "breaking|major"; then
-              echo "version_type=major" >> $GITHUB_OUTPUT
-            else
-              echo "version_type=patch" >> $GITHUB_OUTPUT
-            fi
-          else
+          # Проверяем изменения в version.py
+          if git diff HEAD~1 HEAD --name-only | grep -q "version.py"; then
             echo "should_release=false" >> $GITHUB_OUTPUT
             echo "version_type=none" >> $GITHUB_OUTPUT
+            echo "⏭️ Пропускаем - изменение version.py"
+            exit 0
+          fi
+          
+          # Определяем тип версии по коммитам
+          LAST_COMMIT=$(git log -1 --pretty=%B)
+          echo "should_release=true" >> $GITHUB_OUTPUT
+          
+          if echo "$LAST_COMMIT" | grep -qiE "feat:|feature:|new:"; then
+            echo "version_type=minor" >> $GITHUB_OUTPUT
+          elif echo "$LAST_COMMIT" | grep -qiE "fix:|bug:|patch:"; then
+            echo "version_type=patch" >> $GITHUB_OUTPUT
+          elif echo "$LAST_COMMIT" | grep -qiE "breaking:|major:"; then
+            echo "version_type=major" >> $GITHUB_OUTPUT
+          else
+            echo "version_type=patch" >> $GITHUB_OUTPUT
           fi
 
   auto-tag:
     name: 🏷️ Create Version Tag
     needs: version-check
-    if: needs.version-check.outputs.should_release == 'true'
+    if: needs.version-check.outputs.should_release == 'true' && needs.version-check.outputs.version_type != 'none'
     runs-on: ubuntu-latest
     
     steps:
       - name: 📥 Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -77,10 +73,13 @@ jobs:
           
           # Разбираем версию
           VERSION=${LAST_TAG#v}
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          echo "major=$MAJOR" >> $GITHUB_OUTPUT
-          echo "minor=$MINOR" >> $GITHUB_OUTPUT
-          echo "patch=$PATCH" >> $GITHUB_OUTPUT
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          
+          echo "major=${MAJOR:-0}" >> $GITHUB_OUTPUT
+          echo "minor=${MINOR:-0}" >> $GITHUB_OUTPUT
+          echo "patch=${PATCH:-0}" >> $GITHUB_OUTPUT
       
       - name: 🔢 Расчёт новой версии
         id: new_version
@@ -109,6 +108,7 @@ jobs:
           NEW_VERSION="$MAJOR.$MINOR.$PATCH"
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "new_tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Новая версия: $NEW_VERSION"
       
       - name: 🏷️ Создание нового тега
         run: |
