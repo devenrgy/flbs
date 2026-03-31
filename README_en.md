@@ -17,6 +17,7 @@
 - [First Run](#-first-run)
 - [Uninstall](#-uninstall)
 - [Support the Project](#-support-the-project)
+- [Changelog](#-changelog)
 
 ---
 
@@ -28,6 +29,7 @@
 - 📖 **Search by Series** — view series with book counts
 - 🌐 **Language Filter** — filter books by language (ru, en, etc.)
 - ⬇️ **Download Books** — download selected books in FB2 format
+- 📚 **Download Series** — download all books from a series with one command
 - 🔄 **Sorting** — sort results by date (ascending/descending)
 - 📄 **Pagination** — convenient page-by-page results browsing
 - 🖼️ **Extract Covers and Images** — automatic illustration extraction
@@ -230,6 +232,9 @@ After search, you enter interactive mode with the following commands:
 | `dr` | Reset sorting |
 | `l <language>` | Language filter (e.g., `l ru`) |
 | `d <numbers>` | Download books (e.g., `d 1,3,5`) |
+| `dl` | Download all books (in series/page) |
+| `o <number>` | Open series (in series view mode) |
+| `d <number>` | Download all books from series (in series view mode) |
 | `<` | Back (in series mode) |
 | `q` | Quit |
 

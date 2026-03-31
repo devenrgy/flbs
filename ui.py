@@ -13,7 +13,7 @@ from fmt import (
     print_page,
 )
 from keys import (
-    BACK, DOWNLOAD, FILTER, GOTO, LANG,
+    BACK, DOWNLOAD, DOWNLOAD_ALL, FILTER, GOTO, LANG,
     NEXT, OPEN, PREV, QUIT,
     SORT_ASC, SORT_DESC, SORT_RESET,
     hints_list, hints_series,
@@ -132,6 +132,11 @@ def show_results(
                 input("\nPress Enter to continue...")
             else:
                 print(f"Not found. Example: {str(DOWNLOAD)}")
+        elif low == DOWNLOAD_ALL.cmd:
+            if displayed:
+                downloader.download_all_books(displayed)
+            else:
+                print("  No books to download.")
         else:
             pass
 
@@ -198,6 +203,21 @@ def show_series(series_list: list[tuple[str, int]], lang: str | None) -> None:
                     print(f"Series 1–{total}.")
             else:
                 print(f"Example: {str(OPEN)}")
+        elif cmd.startswith(DOWNLOAD.cmd + " "):
+            token = cmd[len(DOWNLOAD.cmd) + 1:].strip()
+            if token.isdigit():
+                n = int(token) - 1
+                if 0 <= n < total:
+                    books = db.search_books_in_series(series_list[n][0], lang)
+                    if books:
+                        downloader.download_all_books(books)
+                        cache.save(books)
+                    else:
+                        print("No books found in this series.")
+                else:
+                    print(f"Series 1–{total}.")
+            else:
+                print(f"Example: {str(DOWNLOAD)} 1")
         elif cmd.startswith(GOTO.cmd + " "):
             token = cmd[len(GOTO.cmd) + 1:].strip()
             if token.isdigit():

@@ -22,6 +22,7 @@ SORT_RESET  = _Key("dr", "Sort off")
 
 LANG        = _Key("l",  "Language")
 DOWNLOAD    = _Key("d",  "Download")
+DOWNLOAD_ALL = _Key("dl", "Download all")
 
 OPEN        = _Key("o",  "Open")
 FILTER      = _Key("/",  "Filter")
@@ -32,7 +33,7 @@ def _line(*keys: _Key) -> str:
 
 
 def hints_results(has_parent: bool) -> str:
-    keys = [NEXT, PREV, GOTO, SORT_ASC, SORT_DESC, SORT_RESET, LANG, DOWNLOAD]
+    keys = [NEXT, PREV, GOTO, SORT_ASC, SORT_DESC, SORT_RESET, LANG, DOWNLOAD, DOWNLOAD_ALL]
     if has_parent:
         keys.append(BACK)
     keys.append(QUIT)
@@ -40,7 +41,7 @@ def hints_results(has_parent: bool) -> str:
 
 
 def hints_series() -> str:
-    return _line(NEXT, PREV, OPEN, GOTO, QUIT)
+    return _line(NEXT, PREV, OPEN, DOWNLOAD, GOTO, QUIT)
 
 
 def hints_list() -> str:

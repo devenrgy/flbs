@@ -97,3 +97,19 @@ def _encode_images(file_list: list[str], *, is_cover: bool) -> bytes:
     if lines:
         return ("\n".join(lines) + "\n").encode()
     return b""
+
+
+def download_all_books(entries: list[BookRow]) -> None:
+    if not entries:
+        print("  No books to download.")
+        return
+
+    total = len(entries)
+    print(f"\n  Downloading all {total} book(s)...")
+
+    for i, entry in enumerate(entries, 1):
+        print(f"\n  [{i}/{total}] [{author_for_filename(entry['AUTHOR'])}] {entry['TITLE']}")
+        extract(entry)
+
+    print(f"\n  Downloaded {total} book(s).")
+    input("\n  Press Enter to continue...")
